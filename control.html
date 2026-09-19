@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 双向控制</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #334155;
+      text-align: center;
+    }
+    h1 { font-size: 20px; margin-bottom: 8px; color: #f1f5f9; }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #ef4444; transition: background 0.3s;
+    }
+    .dot.online { background: #22c55e; }
+
+    .led-state {
+      font-size: 18px;
+      margin-bottom: 24px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0f172a;
+      border: 1px solid #334155;
+    }
+    .led-state .value { font-weight: 700; }
+    .led-state .value.on  { color: #22c55e; }
+    .led-state .value.off { color: #ef4444; }
+
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .btn {
+      padding: 24px 16px;
+      border: none;
+      border-radius: 16px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+      color: #fff;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-on  { background: #16a34a; }
+    .btn-off { background: #dc2626; }
+
+    .log {
+      margin-top: 24px;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #94a3b8;
+      max-height: 120px;
+      overflow-y: auto;
+      text-align: left;
+      border: 1px solid #334155;
+    }
+    .log div { margin-bottom: 4px; }
+    .log .time { color: #475569; margin-right: 8px; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>ESP32 双向控制</h1>
+
+    <div class="status-bar">
+      <span class="dot" id="connDot"></span>
+      <span id="connText">未连接</span>
+    </div>
+
+    <div class="led-state">
+      灯状态：<span class="value off" id="ledState">未知</span>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-on"  id="btnOn"  onclick="sendCmd('on')">开灯</button>
+      <button class="btn btn-off" id="btnOff" onclick="sendCmd('off')">关灯</button>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    // ===== 改这里：和 ESP32 代码里的主题完全一致 =====
+    const TOPIC_CMD    = 'esp32/Senva/cmd';
+    const TOPIC_STATUS = 'esp32/Senva/status';
+    // =================================================
+
+    const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
+
+    const client = mqtt.connect(BROKER_URL, {
+      clientId: 'web_' + Math.random().toString(16).substr(2, 8),
+      clean: true,
+      reconnectPeriod: 3000
+    });
+
+    const dot      = document.getElementById('connDot');
+    const connText = document.getElementById('connText');
+    const logBox   = document.getElementById('log');
+    const btnOn    = document.getElementById('btnOn');
+    const btnOff   = document.getElementById('btnOff');
+    const ledState = document.getElementById('ledState');
+
+    function addLog(msg) {
+      const t = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.innerHTML = `<span class="time">${t}</span>${msg}`;
+      logBox.prepend(div);
+      while (logBox.children.length > 15) logBox.removeChild(logBox.lastChild);
+    }
+
+    client.on('connect', () => {
+      dot.classList.add('online');
+      connText.textContent = '已连接';
+      btnOn.disabled = false;
+      btnOff.disabled = false;
+      client.subscribe(TOPIC_STATUS);
+      addLog('已连接，订阅状态主题');
+    });
+
+    client.on('reconnect', () => {
+      connText.textContent = '重连中...';
+      dot.classList.remove('online');
+    });
+
+    client.on('close', () => {
+      dot.classList.remove('online');
+      connText.textContent = '已断开';
+      btnOn.disabled = true;
+      btnOff.disabled = true;
+    });
+
+    client.on('message', (topic, payload) => {
+      const msg = payload.toString();
+      addLog(`收到 [${topic}] : ${msg}`);
+
+      if (topic === TOPIC_STATUS) {
+        if (msg === 'on') {
+          ledState.textContent = '已开启';
+          ledState.className = 'value on';
+        } else if (msg === 'off') {
+          ledState.textContent = '已关闭';
+          ledState.className = 'value off';
+        } else {
+          ledState.textContent = msg;
+        }
+      }
+    });
+
+    function sendCmd(cmd) {
+      if (!client.connected) {
+        addLog('未连接，无法发送');
+        return;
+      }
+      client.publish(TOPIC_CMD, cmd, { qos: 0 });
+      addLog('发送指令: ' + cmd);
+    }
+
+    btnOn.disabled = true;
+    btnOff.disabled = true;
+  </script>
+
+</body>
+</html>
