@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 双向控制</title>
+  <title>ESP32 实时控制</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -43,37 +43,45 @@
     }
     .dot.online { background: #22c55e; }
 
-    .led-state {
-      font-size: 18px;
+    /* LED 状态实时监控 */
+    .led-monitor {
       margin-bottom: 24px;
-      padding: 12px;
+      padding: 16px;
       border-radius: 12px;
       background: #0f172a;
       border: 1px solid #334155;
     }
-    .led-state .value { font-weight: 700; }
-    .led-state .value.on  { color: #22c55e; }
-    .led-state .value.off { color: #ef4444; }
-
-    .btn-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+    .led-monitor .label {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 8px;
     }
-    .btn {
-      padding: 24px 16px;
+    .led-monitor .value {
+      font-size: 28px;
+      font-weight: 700;
+      transition: color 0.3s;
+    }
+    .led-monitor .value.on  { color: #22c55e; }
+    .led-monitor .value.off { color: #ef4444; }
+    .led-monitor .value.unknown { color: #64748b; }
+
+    /* 单个开关按钮 */
+    .switch-btn {
+      width: 100%;
+      padding: 24px;
       border: none;
       border-radius: 16px;
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.1s, opacity 0.2s;
+      transition: background 0.3s, transform 0.1s;
       color: #fff;
+      background: #475569;
     }
-    .btn:active { transform: scale(0.96); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-on  { background: #16a34a; }
-    .btn-off { background: #dc2626; }
+    .switch-btn:active { transform: scale(0.97); }
+    .switch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .switch-btn.on  { background: #16a34a; }
+    .switch-btn.off { background: #dc2626; }
 
     .log {
       margin-top: 24px;
@@ -95,21 +103,23 @@
 <body>
 
   <div class="card">
-    <h1>ESP32 双向控制</h1>
+    <h1>ESP32 实时控制</h1>
 
     <div class="status-bar">
       <span class="dot" id="connDot"></span>
       <span id="connText">未连接</span>
     </div>
 
-    <div class="led-state">
-      灯状态：<span class="value off" id="ledState">未知</span>
+    <!-- LED 实时状态 -->
+    <div class="led-monitor">
+      <div class="label">LED 当前状态</div>
+      <div class="value unknown" id="ledState">未知</div>
     </div>
 
-    <div class="btn-group">
-      <button class="btn btn-on"  id="btnOn"  onclick="sendCmd('on')">开灯</button>
-      <button class="btn btn-off" id="btnOff" onclick="sendCmd('off')">关灯</button>
-    </div>
+    <!-- 单个开关按钮 -->
+    <button class="switch-btn" id="switchBtn" onclick="toggleLED()" disabled>
+      连接中...
+    </button>
 
     <div class="log" id="log"></div>
   </div>
@@ -129,12 +139,14 @@
       reconnectPeriod: 3000
     });
 
-    const dot      = document.getElementById('connDot');
-    const connText = document.getElementById('connText');
-    const logBox   = document.getElementById('log');
-    const btnOn    = document.getElementById('btnOn');
-    const btnOff   = document.getElementById('btnOff');
-    const ledState = document.getElementById('ledState');
+    const dot       = document.getElementById('connDot');
+    const connText  = document.getElementById('connText');
+    const logBox    = document.getElementById('log');
+    const ledState  = document.getElementById('ledState');
+    const switchBtn = document.getElementById('switchBtn');
+
+    // 本地记录当前 LED 状态，用于切换按钮文字
+    let currentLED = null;   // null=未知, true=开, false=关
 
     function addLog(msg) {
       const t = new Date().toLocaleTimeString();
@@ -144,13 +156,39 @@
       while (logBox.children.length > 15) logBox.removeChild(logBox.lastChild);
     }
 
+    // 根据 LED 状态更新界面
+    function updateLEDState(isOn) {
+      currentLED = isOn;
+
+      if (isOn === null) {
+        ledState.textContent = '未知';
+        ledState.className = 'value unknown';
+        switchBtn.textContent = '连接中...';
+        switchBtn.className = 'switch-btn';
+        return;
+      }
+
+      if (isOn) {
+        ledState.textContent = '已开启';
+        ledState.className = 'value on';
+        switchBtn.textContent = '关灯';
+        switchBtn.className = 'switch-btn on';
+      } else {
+        ledState.textContent = '已关闭';
+        ledState.className = 'value off';
+        switchBtn.textContent = '开灯';
+        switchBtn.className = 'switch-btn off';
+      }
+    }
+
+    // 连接成功
     client.on('connect', () => {
       dot.classList.add('online');
       connText.textContent = '已连接';
-      btnOn.disabled = false;
-      btnOff.disabled = false;
+      switchBtn.disabled = false;
       client.subscribe(TOPIC_STATUS);
-      addLog('已连接，订阅状态主题');
+      client.publish(TOPIC_CMD, 'status');   // 主动查询一次当前状态
+      addLog('已连接，查询当前状态');
     });
 
     client.on('reconnect', () => {
@@ -161,38 +199,42 @@
     client.on('close', () => {
       dot.classList.remove('online');
       connText.textContent = '已断开';
-      btnOn.disabled = true;
-      btnOff.disabled = true;
+      switchBtn.disabled = true;
+      updateLEDState(null);
     });
 
+    // 收到 ESP32 上报的状态
     client.on('message', (topic, payload) => {
       const msg = payload.toString();
       addLog(`收到 [${topic}] : ${msg}`);
 
       if (topic === TOPIC_STATUS) {
         if (msg === 'on') {
-          ledState.textContent = '已开启';
-          ledState.className = 'value on';
+          updateLEDState(true);
         } else if (msg === 'off') {
-          ledState.textContent = '已关闭';
-          ledState.className = 'value off';
-        } else {
-          ledState.textContent = msg;
+          updateLEDState(false);
         }
+        // 如果后面要发 JSON 数据，在这里加 JSON.parse 分支
       }
     });
 
-    function sendCmd(cmd) {
+    // 单个开关按钮：根据当前状态发送相反指令
+    function toggleLED() {
       if (!client.connected) {
         addLog('未连接，无法发送');
         return;
       }
+      if (currentLED === null) {
+        addLog('状态未知，先查询');
+        client.publish(TOPIC_CMD, 'status');
+        return;
+      }
+
+      const cmd = currentLED ? 'off' : 'on';   // 当前是开就发关，反之亦然
       client.publish(TOPIC_CMD, cmd, { qos: 0 });
       addLog('发送指令: ' + cmd);
+      // 不立即改界面，等 ESP32 上报后由 updateLEDState 更新
     }
-
-    btnOn.disabled = true;
-    btnOff.disabled = true;
   </script>
 
 </body>
