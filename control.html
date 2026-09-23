@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 实时控制</title>
+  <title>ESP32 用电器监控</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -14,10 +14,112 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       padding: 24px;
       gap: 20px;
     }
+
+    /* ===== 上半部分：4 个插座监控区域 ===== */
+    .socket-grid {
+      width: 100%;
+      max-width: 960px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .socket-card {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .socket-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .socket-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    /* 电开关 */
+    .power-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      border-radius: 13px;
+      background: #475569;
+      cursor: pointer;
+      transition: background 0.25s;
+      border: none;
+      flex-shrink: 0;
+    }
+    .power-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      transition: transform 0.25s;
+    }
+    .power-switch.on {
+      background: #16a34a;
+    }
+    .power-switch.on::after {
+      transform: translateX(22px);
+    }
+    .power-switch:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* 三个数据部分（电压/电流/功率） */
+    .socket-metrics {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .metric {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid #334155;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .metric-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #e2e8f0;
+      font-family: monospace;
+    }
+
+    .metric-value .unit {
+      font-size: 11px;
+      font-weight: 400;
+      color: #64748b;
+      margin-left: 2px;
+    }
+
+    /* ===== 下半部分：LED 控制 ===== */
     .card {
       background: #1e293b;
       border-radius: 20px;
@@ -43,7 +145,6 @@
     }
     .dot.online { background: #22c55e; }
 
-    /* LED 状态实时监控 */
     .led-monitor {
       margin-bottom: 24px;
       padding: 16px;
@@ -65,7 +166,6 @@
     .led-monitor .value.off { color: #ef4444; }
     .led-monitor .value.unknown { color: #64748b; }
 
-    /* 单个开关按钮 */
     .switch-btn {
       width: 100%;
       padding: 24px;
@@ -98,10 +198,110 @@
     }
     .log div { margin-bottom: 4px; }
     .log .time { color: #475569; margin-right: 8px; }
+
+    /* 响应式：小屏变 2 列或 1 列 */
+    @media (max-width: 800px) {
+      .socket-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .socket-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
+  <!-- ===== 上半部分：4 个插座监控 ===== -->
+  <div class="socket-grid">
+    <!-- 插座 1 -->
+    <div class="socket-card">
+      <div class="socket-header">
+        <span class="socket-title">插座 1</span>
+        <button class="power-switch" id="sw1" onclick="toggleSocket(1)" disabled></button>
+      </div>
+      <div class="socket-metrics">
+        <div class="metric">
+          <span class="metric-label">电压</span>
+          <span class="metric-value" id="v1">--<span class="unit">V</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">电流</span>
+          <span class="metric-value" id="c1">--<span class="unit">A</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">功率</span>
+          <span class="metric-value" id="p1">--<span class="unit">W</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 插座 2 -->
+    <div class="socket-card">
+      <div class="socket-header">
+        <span class="socket-title">插座 2</span>
+        <button class="power-switch" id="sw2" onclick="toggleSocket(2)" disabled></button>
+      </div>
+      <div class="socket-metrics">
+        <div class="metric">
+          <span class="metric-label">电压</span>
+          <span class="metric-value" id="v2">--<span class="unit">V</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">电流</span>
+          <span class="metric-value" id="c2">--<span class="unit">A</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">功率</span>
+          <span class="metric-value" id="p2">--<span class="unit">W</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 插座 3 -->
+    <div class="socket-card">
+      <div class="socket-header">
+        <span class="socket-title">插座 3</span>
+        <button class="power-switch" id="sw3" onclick="toggleSocket(3)" disabled></button>
+      </div>
+      <div class="socket-metrics">
+        <div class="metric">
+          <span class="metric-label">电压</span>
+          <span class="metric-value" id="v3">--<span class="unit">V</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">电流</span>
+          <span class="metric-value" id="c3">--<span class="unit">A</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">功率</span>
+          <span class="metric-value" id="p3">--<span class="unit">W</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 插座 4 -->
+    <div class="socket-card">
+      <div class="socket-header">
+        <span class="socket-title">插座 4</span>
+        <button class="power-switch" id="sw4" onclick="toggleSocket(4)" disabled></button>
+      </div>
+      <div class="socket-metrics">
+        <div class="metric">
+          <span class="metric-label">电压</span>
+          <span class="metric-value" id="v4">--<span class="unit">V</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">电流</span>
+          <span class="metric-value" id="c4">--<span class="unit">A</span></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">功率</span>
+          <span class="metric-value" id="p4">--<span class="unit">W</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 下半部分：LED 控制（保留原有） ===== -->
   <div class="card">
     <h1>ESP32 实时控制</h1>
 
@@ -110,13 +310,11 @@
       <span id="connText">未连接</span>
     </div>
 
-    <!-- LED 实时状态 -->
     <div class="led-monitor">
       <div class="label">LED 当前状态</div>
       <div class="value unknown" id="ledState">未知</div>
     </div>
 
-    <!-- 单个开关按钮 -->
     <button class="switch-btn" id="switchBtn" onclick="toggleLED()" disabled>
       连接中...
     </button>
@@ -126,12 +324,14 @@
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
-    // ===== 改这里：和 ESP32 代码里的主题完全一致 =====
+    // ===== MQTT 主题配置 =====
     const TOPIC_CMD    = 'esp32/Senva/cmd';
     const TOPIC_STATUS = 'esp32/Senva/status';
-    // =================================================
+    const BROKER_URL   = 'wss://broker.emqx.io:8084/mqtt';
 
-    const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
+    // 插座状态来源待定：预留主题，后续可根据实际修改
+    const TOPIC_SOCKET_STATUS = 'esp32/Senva/socket/status'; // 插座上报状态
+    const TOPIC_SOCKET_CMD    = 'esp32/Senva/socket/cmd';    // 插座控制指令
 
     const client = mqtt.connect(BROKER_URL, {
       clientId: 'web_' + Math.random().toString(16).substr(2, 8),
@@ -145,8 +345,11 @@
     const ledState  = document.getElementById('ledState');
     const switchBtn = document.getElementById('switchBtn');
 
-    // 本地记录当前 LED 状态，用于切换按钮文字
-    let currentLED = null;   // null=未知, true=开, false=关
+    // 本地记录当前 LED 状态
+    let currentLED = null;
+
+    // 本地记录 4 个插座状态（null=未知, true=开, false=关）
+    const socketStates = [null, null, null, null];
 
     function addLog(msg) {
       const t = new Date().toLocaleTimeString();
@@ -156,7 +359,7 @@
       while (logBox.children.length > 15) logBox.removeChild(logBox.lastChild);
     }
 
-    // 根据 LED 状态更新界面
+    // ===== LED 状态更新 =====
     function updateLEDState(isOn) {
       currentLED = isOn;
 
@@ -181,14 +384,59 @@
       }
     }
 
-    // 连接成功
+    // ===== 插座 UI 更新 =====
+    function updateSocketSwitch(index, isOn) {
+      const btn = document.getElementById('sw' + index);
+      if (!btn) return;
+      socketStates[index - 1] = isOn;
+      btn.classList.toggle('on', isOn === true);
+    }
+
+    function updateSocketMetric(index, type, value, unit) {
+      const el = document.getElementById(type + index);
+      if (!el) return;
+      if (value === null || value === undefined || isNaN(value)) {
+        el.innerHTML = `--<span class="unit">${unit}</span>`;
+      } else {
+        el.innerHTML = `${Number(value).toFixed(type === 'c' ? 3 : 1)}<span class="unit">${unit}</span>`;
+      }
+    }
+
+    // 统一处理插座上报数据
+    // 预期格式：{ socket: 1, on: true, voltage: 220.5, current: 0.35, power: 77.2 }
+    function handleSocketStatus(data) {
+      if (data.socket && (data.socket >= 1 && data.socket <= 4)) {
+        const idx = data.socket;
+        if (data.on !== undefined) {
+          updateSocketSwitch(idx, data.on);
+        }
+        if (data.voltage !== undefined) updateSocketMetric(idx, 'v', data.voltage, 'V');
+        if (data.current !== undefined) updateSocketMetric(idx, 'c', data.current, 'A');
+        if (data.power !== undefined)   updateSocketMetric(idx, 'p', data.power, 'W');
+      }
+    }
+
+    // ===== MQTT 事件 =====
     client.on('connect', () => {
       dot.classList.add('online');
       connText.textContent = '已连接';
       switchBtn.disabled = false;
+
+      // 启用插座开关按钮
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById('sw' + i);
+        if (btn) btn.disabled = false;
+      }
+
+      // 订阅主题
       client.subscribe(TOPIC_STATUS);
-      client.publish(TOPIC_CMD, 'status');   // 主动查询一次当前状态
-      addLog('已连接，查询当前状态');
+      client.subscribe(TOPIC_SOCKET_STATUS);
+
+      // 主动查询
+      client.publish(TOPIC_CMD, 'status');
+      client.publish(TOPIC_SOCKET_CMD, JSON.stringify({ action: 'query' }));
+
+      addLog('已连接，查询状态');
     });
 
     client.on('reconnect', () => {
@@ -200,25 +448,49 @@
       dot.classList.remove('online');
       connText.textContent = '已断开';
       switchBtn.disabled = true;
+
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById('sw' + i);
+        if (btn) {
+          btn.disabled = true;
+          btn.classList.remove('on');
+          socketStates[i - 1] = null;
+        }
+        updateSocketMetric(i, 'v', null, 'V');
+        updateSocketMetric(i, 'c', null, 'A');
+        updateSocketMetric(i, 'p', null, 'W');
+      }
+
       updateLEDState(null);
     });
 
-    // 收到 ESP32 上报的状态
     client.on('message', (topic, payload) => {
       const msg = payload.toString();
       addLog(`收到 [${topic}] : ${msg}`);
 
+      // --- LED 状态 ---
       if (topic === TOPIC_STATUS) {
         if (msg === 'on') {
           updateLEDState(true);
         } else if (msg === 'off') {
           updateLEDState(false);
         }
-        // 如果后面要发 JSON 数据，在这里加 JSON.parse 分支
+        // 可扩展 JSON 格式
+        return;
+      }
+
+      // --- 插座状态（来源待定，这里预留 JSON 解析） ---
+      if (topic === TOPIC_SOCKET_STATUS) {
+        try {
+          const data = JSON.parse(msg);
+          handleSocketStatus(data);
+        } catch (e) {
+          // 如果不是 JSON，忽略或按自定义协议解析
+        }
       }
     });
 
-    // 单个开关按钮：根据当前状态发送相反指令
+    // ===== 按钮操作 =====
     function toggleLED() {
       if (!client.connected) {
         addLog('未连接，无法发送');
@@ -230,10 +502,32 @@
         return;
       }
 
-      const cmd = currentLED ? 'off' : 'on';   // 当前是开就发关，反之亦然
+      const cmd = currentLED ? 'off' : 'on';
       client.publish(TOPIC_CMD, cmd, { qos: 0 });
-      addLog('发送指令: ' + cmd);
-      // 不立即改界面，等 ESP32 上报后由 updateLEDState 更新
+      addLog('发送 LED 指令: ' + cmd);
+    }
+
+    // 插座开关切换（每个插座独立）
+    function toggleSocket(index) {
+      if (!client.connected) {
+        addLog('未连接，无法发送');
+        return;
+      }
+
+      const current = socketStates[index - 1];
+      if (current === null) {
+        addLog(`插座 ${index} 状态未知，先查询`);
+        client.publish(TOPIC_SOCKET_CMD, JSON.stringify({ action: 'query', socket: index }));
+        return;
+      }
+
+      const cmd = {
+        socket: index,
+        on: !current
+      };
+      client.publish(TOPIC_SOCKET_CMD, JSON.stringify(cmd), { qos: 0 });
+      addLog(`发送插座 ${index} 指令: ${cmd.on ? '开' : '关'}`);
+      // 不立即改界面，等上报后更新
     }
   </script>
 
