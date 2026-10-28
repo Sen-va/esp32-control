@@ -140,7 +140,8 @@ const clientId = 'web_senva_' + Math.random().toString(16).substring(2, 8);
 const topicData = 'esp32/Senva/data';
 const topicCtrl = 'esp32/Senva/ctrl';
 
-const client = mqtt.connect('ws://broker.emqx.io:8083/mqtt', {
+// 改为 wss + 8084 端口，GitHub Pages 的 HTTPS 页面才能连接
+const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
   clientId: clientId,
   clean: true,
   connectTimeout: 4000
