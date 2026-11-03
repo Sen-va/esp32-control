@@ -2,17 +2,17 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>用电器识别装置</title>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<title>电赛H题 用电器监控</title>
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 <style>
   body {
     font-family: sans-serif;
     margin: 20px;
-    background: #fffdf0;
-    color: #333;
+    background: #f5e9c8;
+    color: #2b2416;
   }
 
-  h2 { color: #8a6d1f; }
+  h2 { color: #6b5416; }
 
   .grid {
     display: flex;
@@ -22,19 +22,19 @@
   }
 
   .card {
-    background: #ffffff;
-    border: 1px solid #f2e6b8;
+    background: #fffef7;
+    border: 1px solid #d8c48a;
     border-radius: 8px;
     padding: 12px 16px;
-    min-width: 180px;
-    box-shadow: 0 1px 4px rgba(210, 190, 120, .15);
+    min-width: 190px;
+    box-shadow: 0 2px 6px rgba(120, 95, 30, .18);
   }
 
   .card h3 {
     margin: 0 0 8px;
     font-size: 15px;
-    color: #8a6d1f;
-    border-bottom: 1px solid #f5edcc;
+    color: #6b5416;
+    border-bottom: 1px solid #e8d9a8;
     padding-bottom: 4px;
   }
 
@@ -45,58 +45,56 @@
     line-height: 1.8;
   }
 
-  .card .row span:first-child { color: #999; }
-  .card .row span:last-child { color: #333; font-weight: 600; }
-
-  .inactive { opacity: .4; }
+  .card .row span:first-child { color: #8a7650; }
+  .card .row span:last-child { color: #2b2416; font-weight: 600; }
 
   .panel {
-    background: #ffffff;
-    border: 1px solid #f2e6b8;
+    background: #fffef7;
+    border: 1px solid #d8c48a;
     border-radius: 8px;
     padding: 14px 18px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 4px rgba(210, 190, 120, .15);
+    box-shadow: 0 2px 6px rgba(120, 95, 30, .18);
   }
 
   .panel h2 {
     font-size: 15px;
     margin: 0 0 10px;
-    color: #8a6d1f;
-    border-left: 4px solid #f0d060;
+    color: #6b5416;
+    border-left: 4px solid #d4a62a;
     padding-left: 8px;
   }
 
   button {
     padding: 6px 14px;
     margin-right: 8px;
-    border: 1px solid #e6d488;
+    border: 1px solid #c9a94e;
     border-radius: 4px;
-    background: #fffbe8;
-    color: #6b5416;
+    background: #f7e6a8;
+    color: #5a4612;
     cursor: pointer;
     transition: background .15s;
   }
 
-  button:hover { background: #fdf2c4; }
+  button:hover { background: #efd886; }
 
   #log {
     height: 140px;
     overflow-y: auto;
     font-size: 13px;
     font-family: monospace;
-    background: #fffdf5;
+    background: #fffdf2;
     padding: 8px;
-    border: 1px solid #f2e6b8;
+    border: 1px solid #d8c48a;
     border-radius: 4px;
-    color: #555;
+    color: #4a3f28;
   }
 
   #log div { line-height: 1.6; }
 
-  .status { font-size: 12px; color: #a8955a; }
+  .status { font-size: 12px; color: #7a6636; }
 
-  #learnedList { font-size: 14px; color: #444; }
+  #learnedList { font-size: 14px; color: #3d3420; }
 </style>
 </head>
 <body>
@@ -104,17 +102,14 @@
 <h2>用电器监控</h2>
 <div class="status" id="connStatus">MQTT 未连接</div>
 
-<!-- 用电器数据窗口 -->
 <div class="grid" id="deviceGrid"></div>
 
-<!-- 已学习记录 -->
 <div class="panel">
   <h2>已学习用电器</h2>
   <div id="learnedList">（暂无）</div>
   <button onclick="sendCtrl({cmd:'clear_learned'})">清除学习记录</button>
 </div>
 
-<!-- 模式窗口 -->
 <div class="panel">
   <h2>模式</h2>
   <div id="modeDisplay">当前模式：未知</div>
@@ -122,14 +117,12 @@
   <button onclick="sendCtrl({cmd:'set_mode', value:'recognize'})">识别模式</button>
 </div>
 
-<!-- 控制窗口 -->
 <div class="panel">
   <h2>模块控制</h2>
   <button onclick="sendCtrl({cmd:'set_module', name:'voice', value:1})">语音开</button>
   <button onclick="sendCtrl({cmd:'set_module', name:'voice', value:0})">语音关</button>
 </div>
 
-<!-- 日志窗口 -->
 <div class="panel">
   <h2>日志</h2>
   <div id="log"></div>
@@ -140,7 +133,6 @@ const clientId = 'web_senva_' + Math.random().toString(16).substring(2, 8);
 const topicData = 'esp32/Senva/data';
 const topicCtrl = 'esp32/Senva/ctrl';
 
-// 改为 wss + 8084 端口，GitHub Pages 的 HTTPS 页面才能连接
 const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
   clientId: clientId,
   clean: true,
@@ -154,7 +146,6 @@ const connStatus = document.getElementById('connStatus');
 const modeDisplay = document.getElementById('modeDisplay');
 
 let prevIds = new Set();
-const MAX_SLOTS = 5;
 
 client.on('connect', () => {
   connStatus.textContent = 'MQTT 已连接';
@@ -184,9 +175,6 @@ client.on('message', (topic, payload) => {
 });
 
 function renderDevices(devices) {
-  const map = {};
-  devices.forEach(d => { map[d.id] = d; });
-
   const currentIds = new Set(devices.map(d => d.id));
 
   prevIds.forEach(id => {
@@ -197,20 +185,20 @@ function renderDevices(devices) {
   });
   prevIds = currentIds;
 
+  // 按数据给的顺序渲染，有几个显示几个，不再固定槽位
   deviceGrid.innerHTML = '';
-  for (let id = 1; id <= MAX_SLOTS; id++) {
-    const d = map[id];
+  devices.forEach(d => {
     const card = document.createElement('div');
-    card.className = 'card' + (d ? '' : ' inactive');
+    card.className = 'card';
     card.innerHTML = `
-      <h3>用电器 ${id}</h3>
-      <div class="row"><span>电流</span><span>${d ? d.i : '—'}</span></div>
-      <div class="row"><span>电压</span><span>${d ? d.v : '—'}</span></div>
-      <div class="row"><span>功率</span><span>${d ? d.p : '—'}</span></div>
-      <div class="row"><span>相位</span><span>${d ? d.phase : '—'}</span></div>
+      <h3>用电器 ${d.id}</h3>
+      <div class="row"><span>电流</span><span>${d.i} A</span></div>
+      <div class="row"><span>电压</span><span>${d.v} V</span></div>
+      <div class="row"><span>功率</span><span>${d.p} W</span></div>
+      <div class="row"><span>相位</span><span>${d.phase} °</span></div>
     `;
     deviceGrid.appendChild(card);
-  }
+  });
 }
 
 function renderLearned(list) {
