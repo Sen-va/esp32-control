@@ -221,6 +221,7 @@ client.on('error', (err) => {
 });
 
 client.on('message', (topic, payload) => {
+  console.log('收到消息:', payload.toString());
   if (topic !== topicData) return;
   let data;
   try {
