@@ -5,48 +5,72 @@
 <title>用电器识别装置</title>
 <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 <style>
+  * { box-sizing: border-box; }
+
   body {
     font-family: sans-serif;
-    margin: 20px;
+    margin: 0;
+    padding: 20px;
     background: #f5e9c8;
     color: #2b2416;
   }
 
-  h2 { color: #6b5416; }
+  h2 { color: #6b5416; margin-top: 0; }
 
+  /* 左右两栏：左侧用电器，右侧日志 */
+  .layout {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .left-col {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .right-col {
+    flex: 0 0 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* 用电器卡片放大 */
   .grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 16px;
     margin-bottom: 20px;
   }
 
   .card {
     background: #fffef7;
     border: 1px solid #d8c48a;
-    border-radius: 8px;
-    padding: 12px 16px;
-    min-width: 190px;
-    box-shadow: 0 2px 6px rgba(120, 95, 30, .18);
+    border-radius: 10px;
+    padding: 18px 22px;
+    flex: 1 1 260px;
+    min-width: 260px;
+    box-shadow: 0 3px 8px rgba(120, 95, 30, .2);
   }
 
   .card h3 {
-    margin: 0 0 8px;
-    font-size: 15px;
+    margin: 0 0 12px;
+    font-size: 18px;
     color: #6b5416;
     border-bottom: 1px solid #e8d9a8;
-    padding-bottom: 4px;
+    padding-bottom: 6px;
   }
 
   .card .row {
     display: flex;
     justify-content: space-between;
-    font-size: 14px;
-    line-height: 1.8;
+    font-size: 17px;
+    line-height: 2.1;
   }
 
   .card .row span:first-child { color: #8a7650; }
-  .card .row span:last-child { color: #2b2416; font-weight: 600; }
+  .card .row span:last-child { color: #2b2416; font-weight: 700; }
 
   .panel {
     background: #fffef7;
@@ -78,8 +102,16 @@
 
   button:hover { background: #efd886; }
 
+  /* 日志放到右栏，拉高 */
+  .log-panel {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+  }
+
   #log {
-    height: 140px;
+    flex: 1 1 auto;
     overflow-y: auto;
     font-size: 13px;
     font-family: monospace;
@@ -92,9 +124,14 @@
 
   #log div { line-height: 1.6; }
 
-  .status { font-size: 12px; color: #7a6636; }
+  .status { font-size: 12px; color: #7a6636; margin-bottom: 12px; }
 
   #learnedList { font-size: 14px; color: #3d3420; }
+
+  @media (max-width: 900px) {
+    .layout { flex-direction: column; }
+    .right-col { flex: 1 1 auto; width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -102,30 +139,38 @@
 <h2>用电器识别装置</h2>
 <div class="status" id="connStatus">MQTT 未连接</div>
 
-<div class="grid" id="deviceGrid"></div>
+<div class="layout">
+  <!-- 左栏：用电器数据 + 下方控制面板 -->
+  <div class="left-col">
+    <div class="grid" id="deviceGrid"></div>
 
-<div class="panel">
-  <h2>已学习用电器</h2>
-  <div id="learnedList">（暂无）</div>
-  <button onclick="sendCtrl({cmd:'clear_learned'})">清除学习记录</button>
-</div>
+    <div class="panel">
+      <h2>已学习用电器</h2>
+      <div id="learnedList">（暂无）</div>
+      <button onclick="sendCtrl({cmd:'clear_learned'})">清除学习记录</button>
+    </div>
 
-<div class="panel">
-  <h2>模式</h2>
-  <div id="modeDisplay">当前模式：未知</div>
-  <button onclick="sendCtrl({cmd:'set_mode', value:'learn'})">学习模式</button>
-  <button onclick="sendCtrl({cmd:'set_mode', value:'recognize'})">识别模式</button>
-</div>
+    <div class="panel">
+      <h2>模式</h2>
+      <div id="modeDisplay">当前模式：未知</div>
+      <button onclick="sendCtrl({cmd:'set_mode', value:'learn'})">学习模式</button>
+      <button onclick="sendCtrl({cmd:'set_mode', value:'recognize'})">识别模式</button>
+    </div>
 
-<div class="panel">
-  <h2>模块控制</h2>
-  <button onclick="sendCtrl({cmd:'set_module', name:'voice', value:1})">语音开</button>
-  <button onclick="sendCtrl({cmd:'set_module', name:'voice', value:0})">语音关</button>
-</div>
+    <div class="panel">
+      <h2>模块控制</h2>
+      <button onclick="sendCtrl({cmd:'set_module', name:'voice', value:1})">语音开</button>
+      <button onclick="sendCtrl({cmd:'set_module', name:'voice', value:0})">语音关</button>
+    </div>
+  </div>
 
-<div class="panel">
-  <h2>日志</h2>
-  <div id="log"></div>
+  <!-- 右栏：日志 -->
+  <div class="right-col">
+    <div class="panel log-panel">
+      <h2>日志</h2>
+      <div id="log"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -185,7 +230,6 @@ function renderDevices(devices) {
   });
   prevIds = currentIds;
 
-  // 按数据给的顺序渲染，有几个显示几个，不再固定槽位
   deviceGrid.innerHTML = '';
   devices.forEach(d => {
     const card = document.createElement('div');
