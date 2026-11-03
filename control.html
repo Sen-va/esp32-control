@@ -17,17 +17,13 @@
 
   h2 { color: #6b5416; margin-top: 0; }
 
-  /* 左右两栏：左侧用电器，右侧日志 */
   .layout {
     display: flex;
     gap: 18px;
     align-items: flex-start;
   }
 
-  .left-col {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
+  .left-col { flex: 1 1 auto; min-width: 0; }
 
   .right-col {
     flex: 0 0 320px;
@@ -36,7 +32,6 @@
     gap: 16px;
   }
 
-  /* 用电器卡片放大 */
   .grid {
     display: flex;
     flex-wrap: wrap;
@@ -62,15 +57,41 @@
     padding-bottom: 6px;
   }
 
-  .card .row {
+  /* 每一项：左边标签，右边数值 + 下方单位 */
+  .item {
     display: flex;
     justify-content: space-between;
-    font-size: 17px;
-    line-height: 2.1;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px dashed #efe3bf;
   }
 
-  .card .row span:first-child { color: #8a7650; }
-  .card .row span:last-child { color: #2b2416; font-weight: 700; }
+  .item:last-child { border-bottom: none; }
+
+  .item .label {
+    font-size: 16px;
+    color: #8a7650;
+    line-height: 1.4;
+  }
+
+  .item .value-wrap {
+    text-align: right;
+    line-height: 1.2;
+  }
+
+  .item .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2b2416;
+  }
+
+  .item .unit {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: #b8a678;
+    margin-top: 2px;
+  }
 
   .panel {
     background: #fffef7;
@@ -102,7 +123,6 @@
 
   button:hover { background: #efd886; }
 
-  /* 日志放到右栏，拉高 */
   .log-panel {
     flex: 1 1 auto;
     display: flex;
@@ -140,7 +160,6 @@
 <div class="status" id="connStatus">MQTT 未连接</div>
 
 <div class="layout">
-  <!-- 左栏：用电器数据 + 下方控制面板 -->
   <div class="left-col">
     <div class="grid" id="deviceGrid"></div>
 
@@ -164,7 +183,6 @@
     </div>
   </div>
 
-  <!-- 右栏：日志 -->
   <div class="right-col">
     <div class="panel log-panel">
       <h2>日志</h2>
@@ -236,10 +254,34 @@ function renderDevices(devices) {
     card.className = 'card';
     card.innerHTML = `
       <h3>用电器 ${d.id}</h3>
-      <div class="row"><span>电流</span><span>${d.i} A</span></div>
-      <div class="row"><span>电压</span><span>${d.v} V</span></div>
-      <div class="row"><span>功率</span><span>${d.p} W</span></div>
-      <div class="row"><span>相位</span><span>${d.phase} °</span></div>
+      <div class="item">
+        <span class="label">电流</span>
+        <span class="value-wrap">
+          <span class="value">${d.i}</span>
+          <span class="unit">A</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">电压</span>
+        <span class="value-wrap">
+          <span class="value">${d.v}</span>
+          <span class="unit">V</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">功率</span>
+        <span class="value-wrap">
+          <span class="value">${d.p}</span>
+          <span class="unit">W</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">相位</span>
+        <span class="value-wrap">
+          <span class="value">${d.phase}</span>
+          <span class="unit">°</span>
+        </span>
+      </div>
     `;
     deviceGrid.appendChild(card);
   });
