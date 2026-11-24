@@ -257,29 +257,43 @@ function renderDevices(devices) {
       <div class="item">
         <span class="label">电流</span>
         <span class="value-wrap">
-          <span class="value">${d.i}</span>
+          <span class="value">${d.I}</span>
           <span class="unit">A</span>
         </span>
       </div>
       <div class="item">
-        <span class="label">电压</span>
+        <span class="label">有功功率</span>
         <span class="value-wrap">
-          <span class="value">${d.v}</span>
-          <span class="unit">V</span>
-        </span>
-      </div>
-      <div class="item">
-        <span class="label">功率</span>
-        <span class="value-wrap">
-          <span class="value">${d.p}</span>
+          <span class="value">${d.P}</span>
           <span class="unit">W</span>
         </span>
       </div>
       <div class="item">
-        <span class="label">相位</span>
+        <span class="label">无功功率</span>
         <span class="value-wrap">
-          <span class="value">${d.phase}</span>
-          <span class="unit">°</span>
+          <span class="value">${d.Q}</span>
+          <span class="unit">var</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">视在功率</span>
+        <span class="value-wrap">
+          <span class="value">${d.S}</span>
+          <span class="unit">VA</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">功率因数</span>
+        <span class="value-wrap">
+          <span class="value">${d.PF}</span>
+          <span class="unit">PF</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">频率</span>
+        <span class="value-wrap">
+          <span class="value">${d.F}</span>
+          <span class="unit">Hz</span>
         </span>
       </div>
     `;
@@ -309,6 +323,7 @@ function addLog(text) {
   while (logBox.children.length > 200) logBox.removeChild(logBox.lastChild);
 }
 </script>
-
+</body>
+</html>
 </body>
 </html>
