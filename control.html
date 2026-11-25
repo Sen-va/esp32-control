@@ -26,7 +26,8 @@
   .left-col { flex: 1 1 auto; min-width: 0; }
 
   .right-col {
-    flex: 0 0 320px;
+    flex: 0 0 33%;
+    max-width: 33%;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -156,7 +157,11 @@
 
   @media (max-width: 900px) {
     .layout { flex-direction: column; }
-    .right-col { flex: 1 1 auto; width: 100%; }
+    .right-col {
+      flex: 1 1 auto;
+      width: 100%;
+      max-width: 100%;
+    }
   }
 </style>
 </head>
@@ -352,5 +357,7 @@ function addLog(text) {
   while (logBox.children.length > 200) logBox.removeChild(logBox.lastChild);
 }
 </script>
+</body>
+</html>
 </body>
 </html>
