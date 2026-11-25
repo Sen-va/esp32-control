@@ -147,6 +147,13 @@
 
   #learnedList { font-size: 14px; color: #3d3420; }
 
+  #activeDevices {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2b2416;
+    min-height: 24px;
+  }
+
   @media (max-width: 900px) {
     .layout { flex-direction: column; }
     .right-col { flex: 1 1 auto; width: 100%; }
@@ -160,7 +167,59 @@
 
 <div class="layout">
   <div class="left-col">
-    <div class="grid" id="deviceGrid"></div>
+
+    <!-- 上面：正在使用的用电器 -->
+    <div class="panel">
+      <h2>正在使用的用电器</h2>
+      <div id="activeDevices">--</div>
+    </div>
+
+    <!-- 下面：总参数，六项格式与原来一致 -->
+    <div class="card" style="margin-bottom:16px;">
+      <h3>总参数</h3>
+      <div class="item">
+        <span class="label">电流</span>
+        <span class="value-wrap">
+          <span class="value" id="val-I">--</span>
+          <span class="unit">A</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">有功功率</span>
+        <span class="value-wrap">
+          <span class="value" id="val-P">--</span>
+          <span class="unit">W</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">无功功率</span>
+        <span class="value-wrap">
+          <span class="value" id="val-Q">--</span>
+          <span class="unit">var</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">视在功率</span>
+        <span class="value-wrap">
+          <span class="value" id="val-S">--</span>
+          <span class="unit">VA</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">功率因数</span>
+        <span class="value-wrap">
+          <span class="value" id="val-PF">--</span>
+          <span class="unit">PF</span>
+        </span>
+      </div>
+      <div class="item">
+        <span class="label">频率</span>
+        <span class="value-wrap">
+          <span class="value" id="val-F">--</span>
+          <span class="unit">Hz</span>
+        </span>
+      </div>
+    </div>
 
     <div class="panel">
       <h2>已学习用电器</h2>
@@ -201,11 +260,13 @@ const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
   connectTimeout: 4000
 });
 
-const deviceGrid = document.getElementById('deviceGrid');
+const activeDevicesEl = document.getElementById('activeDevices');
 const learnedList = document.getElementById('learnedList');
 const logBox = document.getElementById('log');
 const connStatus = document.getElementById('connStatus');
 const modeDisplay = document.getElementById('modeDisplay');
+
+const DATA_FIELDS = ['I', 'P', 'Q', 'S', 'PF', 'F'];
 
 let prevIds = new Set();
 
@@ -230,15 +291,17 @@ client.on('message', (topic, payload) => {
     addLog('JSON 解析失败: ' + payload.toString());
     return;
   }
-  renderDevices(data.devices || []);
+  renderActiveDevices(data.devices || []);
+  renderTotalData(data.data || null);
   renderLearned(data.learned || []);
   if (data.mode !== undefined) {
     modeDisplay.textContent = '当前模式：' + data.mode;
   }
 });
 
-function renderDevices(devices) {
-  const currentIds = new Set(devices.map(d => d.id));
+// 正在使用的用电器：devices 现在是编号数组
+function renderActiveDevices(ids) {
+  const currentIds = new Set(ids);
 
   prevIds.forEach(id => {
     if (!currentIds.has(id)) addLog('用电器 ' + id + ' 停止使用');
@@ -248,56 +311,22 @@ function renderDevices(devices) {
   });
   prevIds = currentIds;
 
-  deviceGrid.innerHTML = '';
-  devices.forEach(d => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `
-      <h3>用电器 ${d.id}</h3>
-      <div class="item">
-        <span class="label">电流</span>
-        <span class="value-wrap">
-          <span class="value">${d.I}</span>
-          <span class="unit">A</span>
-        </span>
-      </div>
-      <div class="item">
-        <span class="label">有功功率</span>
-        <span class="value-wrap">
-          <span class="value">${d.P}</span>
-          <span class="unit">W</span>
-        </span>
-      </div>
-      <div class="item">
-        <span class="label">无功功率</span>
-        <span class="value-wrap">
-          <span class="value">${d.Q}</span>
-          <span class="unit">var</span>
-        </span>
-      </div>
-      <div class="item">
-        <span class="label">视在功率</span>
-        <span class="value-wrap">
-          <span class="value">${d.S}</span>
-          <span class="unit">VA</span>
-        </span>
-      </div>
-      <div class="item">
-        <span class="label">功率因数</span>
-        <span class="value-wrap">
-          <span class="value">${d.PF}</span>
-          <span class="unit">PF</span>
-        </span>
-      </div>
-      <div class="item">
-        <span class="label">频率</span>
-        <span class="value-wrap">
-          <span class="value">${d.F}</span>
-          <span class="unit">Hz</span>
-        </span>
-      </div>
-    `;
-    deviceGrid.appendChild(card);
+  if (!ids.length) {
+    activeDevicesEl.textContent = '--';
+  } else {
+    activeDevicesEl.textContent = ids.join(', ');
+  }
+}
+
+// 总参数：data 是一个对象，字段缺失或整体缺失时显示 --
+function renderTotalData(d) {
+  DATA_FIELDS.forEach(f => {
+    const el = document.getElementById('val-' + f);
+    if (d && d[f] !== undefined && d[f] !== null) {
+      el.textContent = d[f];
+    } else {
+      el.textContent = '--';
+    }
   });
 }
 
@@ -323,7 +352,5 @@ function addLog(text) {
   while (logBox.children.length > 200) logBox.removeChild(logBox.lastChild);
 }
 </script>
-</body>
-</html>
 </body>
 </html>
